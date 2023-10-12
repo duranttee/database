@@ -1,23 +1,9 @@
-const express = require ('express')
-const app = express()
-const port = 3000
-const rootRouter = require('./routes/root')
-
-
-app.use(express.json())
-
-
-app.use('/api/v1', rootRouter)
-
-
-app.listen(port, ()=> {
-    console.log('listening on port ${port}')
-})
+const Server = require('./server');
+const server = new Server();
+require('dotenv').config();
 
 
 
-
-
-
+server.listen();
 
 
