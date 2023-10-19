@@ -52,7 +52,16 @@ const usersModel = {
 
             )
     `
+    ,
 
+    deleteRow: `
+    UPDATE
+        users_1
+    SET
+        is_active = 0
+    WHERE
+        id = ?
+    `,
 }
 
 module.exports = usersModel;
