@@ -302,12 +302,11 @@ const listUserByID = async(req = request, res = response)  => {
             
 }  
 
-const signInUser = (req = request, res = response) => {
+const signInUser = async (req = request, res = response) => {
     let conn;
 
     const {username, password} = req.body;
 
-    
 
     try{
 
