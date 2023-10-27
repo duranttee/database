@@ -1,20 +1,19 @@
-const {request, response} = require('express');
-const usersModel = require('../models/users')
-const pool = require('../db');
-
+const {request, reponse} = require('express');
+const bcrypt = require('bcrypt');
+const usersModel = require('../models/users');
+const pool = require('../DB');
+//1//
 const listUsers = async(req = request, res = response)  => {
 let conn;
-
 try {
     conn = await pool.getConnection();
 
-    const users = await conn.query(usersModel.getAll, [id], (err) => {
+    const users = await conn.query(usersModel.getAll, (err) => {
         if (err) {
             throw err;
             
         }
-    })
-
+    })    
     res.json(users)
 } 
 catch (error) {
@@ -26,155 +25,332 @@ catch (error) {
     {conn.end();}
 }
 }
+//2//
+const listUserByID = async(req = request, res = response)  => {
+    const {id}=req.params;
+    let conn; 
 
-
-    const listUsersByID = async(req = request, res = response)  => {
-        const{id} = req.params;
-        let conn;
+    if (isNaN(id)) {   //cuando no es un número//
+        res.status(400).json({msg: `THE ID - IS INVALID`});    //mostrata este mensaje cuando se tecleé un carácter en vez de un munero// 
+        return;
         
-        if(isNaN(id)) {
-            res.status(400).json({msg: `The ID ${id} is invalid`});
+    }
+    
+    try {
+        conn = await pool.getConnection();
+    
+        const [user] = await conn.query(usersModel.getByID, [id], (err) => {    //consulta de los registro en nuestra base de datos//
+            if (err) {
+                throw err;
+                
+            }
+        })
+
+        if (!user) {
+            res.status(404).json({msg: `USER WITH ID ${id} NOT FOUND`});     //mostrata este mensaje cuando se tecleé un numero en vez de un carácter// 
             return;
         }
-        
+
+        res.json(user);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json(error);
     
+    } finally{
+        if(conn)
+        {conn.end();}
+    }
+    }
+
+    //Nuevo EndPoint 3//
+
+
+
+    const addUser=async(req = request, res = response) => {
+        const {
+            username,
+            password,
+            email,
+            name,
+            lastname,
+            phonenumber= '',
+            role_id,
+            is_active= 1
+        } = req.body;
+
+        if (!username || !password || !email || !name || !lastname || !role_id) {
+            res.status(400).json({msg: 'MISSING INFORMATION'});
+            return;
+        }
+        const salRounds = 10;
+        const passwordHash = await bcrypt.hash(password, salRounds);
+
+        const user = [
+            username, 
+            passwordHash, 
+            email, 
+            name, 
+            lastname, 
+            phonenumber, 
+            role_id, 
+            is_active]
+        let conn;
+
         try {
             conn = await pool.getConnection();
-        
-            const user = await conn.query(usersModel.getByID, [id], (err) => {
-                if (err) {
-                    throw err;
-                    
-                }
-            })
 
-            if (!user) {
-                res.status(404).json({msg: `User with ID ${id} not found`});
-                return;
-            }
-            res.json(user)
-        } 
-        catch (error) {
+            const [usernameExists] = await conn.query(usersModel.getByUsername, [username], (err) => {
+                if (err) throw err;
+                })
+                if (usernameExists) {
+                    res.status(409).json({msg: 'Username ${username} already exists'});
+                    return;
+                }
+
+            const [emailExists] = await conn.query(usersModel.getByEmail, [email], (err) => {
+                if (err) throw err;
+                })
+                if (emailExists) {
+                    res.status(409).json({msg: 'Email ${email} already exists'});
+                    return;
+                    }
+
+
+
+            const userAdded = await conn.query(usersModel.addRow, [...user], (err) => {
+                if (err) throw err;
+                })
+                if (userAdded.affecteRows === 0){
+                    throw new Error('User not added')
+                }                                                   
+                res.json({msg: 'USER ADDED SECCESFULLY'});        
+        } catch (error) {
             console.log(error);
             res.status(500).json(error);
-        
-        } finally{
-            if(conn)
-            {conn.end();}
+            return;
+        }finally{
+            
+            if(conn)conn.end();
+            
         }
         }
 
-        const addUser = async (req = request, res = response) => {
-            const{
-                username, 
+        //Nuevo EndPoint 4 Modificar o Actualizar un registro ya registrado en nuestra base de datos//
+        const updateUser = async (req = request, res = response) => {
+            let conn;
+        
+            const {
+                username,
                 password,
                 email,
                 name,
                 lastname,
-                phone_number = '',
+                phonenumber,
                 role_id,
-                is_active = 1
+                is_active
             } = req.body;
 
-            if (!username || !password || !email || !name || !lastname || !role_id) {
-                res.status(400).json({msg: 'Missing information'})
+            const { id } = req.params;
+
+            if (isNaN(id)) {   //cuando no es un número//
+                res.status(400).json({msg: `THE ID - IS INVALID`});    //mostrata este mensaje cuando se tecleé un carácter en vez de un munero// 
+                return;
+                
+            }
+
+            let passwordHash;
+            if (password) {
+                const salRounds = 10;
+                passwordHash = await bcrypt.hash(password, salRounds);
+                
+            }
+
+            let userNewData = [
+                username,
+                passwordHash,
+                email,
+                name,
+                lastname,
+                phonenumber,
+                role_id,
+                is_active
+            ];
+        
+            try {
+                conn = await pool.getConnection();
+        
+        const [userExists] = await conn.query
+        (usersModel.getByID, 
+            [id], 
+            (err) => {
+            if (err) throw err;
+        });
+
+        if (!userExists || userExists.is_active ===0){
+            res.status(409).json({msg: `User with ID ${id} not found`});
+                return;
+        }
+
+        const [usernameExists] = await conn.query(usersModel.getByUsername, [username], (err) => {
+            if (err) throw err;
+            })
+            if (usernameExists) {
+                res.status(409).json({msg: 'Username ${username} already exists'});
                 return;
             }
 
-            const user = [username, password, email, name, lastname, phone_number, role_id, is_active]
-            let conn;
-
-            try {
-                conn = await pool.getConnection();
-
-                const [usernameExist] = await conn.query(usersModel.getByUsername, [username], (err) => {
-                    if (err) throw err;
-                })
-
-                if (usernameExist) {
-                    res.status(409),json({msg: `Username ${username} already exists`});
-                    return;
+        const [emailExists] = await conn.query(usersModel.getByEmail, [email], (err) => {
+            if (err) throw err;
+            })
+            if (emailExists) {
+                res.status(409).json({msg: 'Email ${email} already exists'});
+                return;
                 }
 
-                const [emailExist] = await conn.query(usersModel.getByEmail, [email], (err) => {
-                    if (err) throw err;
-                })
+                const userOldData = [
+                userExists.username,
+                userExists.password,
+                userExists.email,
+                userExists.name,
+                userExists.lastname,
+                userExists.phonenumber,
+                userExists.role_id,
+                userExists.is_active     
+            ];
 
-                if (emailExist) {
-                    res.status(409),json({msg: `Email ${email} already exists`});
-                    return;
+            userNewData.forEach((userData, index) =>{
+                if (!userData){
+                    userNewData[index] = userOldData[index];
                 }
+            })
+                const userUpdated = await conn.query(
+                    usersModel.updateRow,
+                    [...userNewData, id],
+                    (err) =>{
+                        if (err) throw err;
+                    }
+                )
 
+        if (userUpdated.affecteRows === 0){
+        throw new Error('User not added')
+                } 
 
-
-                const userAdded = await conn.query(userModel.addRow, [...user], (err) => {
-                    if (err) throw err;
-
-                })
-
-                if (userAdded.affectedRows == 0) {
-                    throw new Error ('User not added')
-                }
-                res.json({msg: 'User added succesfully'});
-
-
+                res.json({msg: 'USER UPDATED SECCESFULLY'});
+                
             } catch (error) {
                 console.log(error);
-                res.status(500).json (error);
-            }   finally {
+                res.status(500).json(error);
+                return;
+            } finally {
                 if (conn) conn.end();
             }
         }
+        
+    
 
-        const deleteUser = async (req = request, res = response) => {
+
+//endpoint 5//para eleminar  un usuario
+        const deleteUser = async(req = request, res = response) => {
             let conn;
-            const {id} = req.params;
+            const {id} = req.params; 
+            if (isNaN(id)) {   //cuando no es un número//
+                res.status(400).json({msg: `THE ID - IS INVALID`});    //mostrata este mensaje cuando se tecleé un carácter en vez de un munero// 
+                return;
+                
+            }
+
+
         try {
+
             conn = await pool.getConnection();
 
-            const [userExists] = await conn.query(
-                usersModel.getByID,
+            const [userExists] = await conn.query
+            (usersModel.getByID, 
+                [id], 
+                (err) => {
+                if (err) throw err;
+            });
+
+            if (!userExists || userExists.is_active ===0){
+                res.status(409).json({msg: `User with ID ${id} not found`});
+                return;
+
+            }
+
+            const userDeleted = await conn.query(
+                usersModel.deleteRow,
                 [id],
                 (err) => {
                     if (err) throw err;
                 }
             );
-
-            if (!userExists|| userExists.is_active == 0) {
-                res.status(404).json ({msg: `User with ID ${id} not found`});
-                return;
-            }
             
-        const userDeleted = await conn.query (
-            usersModel.deleteRow,
-            [id],
-            (err) => {
-                if (err) throw err; 
+            if (userDeleted.affecteRows === 0){
+                throw new Error('User not deleted');
+
             }
+            res.json ({msg: 'User deleted seccesfully'});
 
-        );
-
-        if (userDeleted.affectedRows == 0){
-            throw new Error ('User not deleted');
-        }
-
-        res.json({msg: 'User deletd succesfully'});
         } catch (error) {
             console.log(error);
             res.status(500).json(error);
-        } finally {
-                if (conn) conn.end();
-            }
+        } finally{
+            if(conn) (await conn).end();
 
+
+        }
             
+}  
+
+const signInUser = (req = request, res = response) => {
+    let conn;
+
+    const {username, password} = req.body;
+
+    
+
+    try{
+
+        conn = await pool.getConnection
+
+        if (!username || !password){
+            res.status(400).json({msg: 'You must send Username and Password'});
+            return;
+        }
+    
+        const [user] = conn.query(
+        usersModel.getByUsername,
+        [username], 
+        (err)=> {
+            if (err) throw err;
+            }
+        );
+    
+        if(!user){
+            res.status(404).json({msg: `wrong username or password`});
+            return;
+        }
+    
+        const passwordOk = await bcrypt.compare(password, user.password);
+    
+        if (!passwordOk) {
+            res.status(404).json({msg: `wrong username or password`});
+            return;
+        }
+
+        delete(user.password);
+        delete(user.created_at);
+        delete(user.updated_at);
+
+        res.json(user);
+    } catch (error) {
+        console.log(error) 
+        res.status(500).json(error);
+        } finally {
+            if (conn) conn.end(error);
         }
         
-        
+    }
 
-            
         
-        
-            module.exports = {listUsers, listUsersByID, addUser, deleteUser,}
-        
-
-        // routes - controllers  - models
+    module.exports = {listUsers, listUserByID, addUser, updateUser, deleteUser, signInUser}
