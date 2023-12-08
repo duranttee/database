@@ -4,16 +4,16 @@ const usersRouter = require('./routes/users')
 
 class Server  {
     constructor(){
-         this.app = express();
-         this.port = 3000;
+        this.app = express();
+        this.port = 3000;
 
 
          //paths
-         this.basePath = '/api/v1';
-         this.usersPath =  `${this.basePath}/users`;
+        this.basePath = '/api/v1';
+        this.usersPath =  `${this.basePath}/users`;
 
-         this.middlewares();
-         this.routes();
+        this.middlewares();
+        this.routes();
 
     }
 

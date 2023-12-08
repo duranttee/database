@@ -1,7 +1,8 @@
-const {request, reponse} = require('express');
+const {request, response} = require('express');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const usersModel = require('../models/users');
-const pool = require('../DB');
+const pool = require('../db');
 //1//
 const listUsers = async(req = request, res = response)  => {
 let conn;
@@ -62,7 +63,7 @@ const listUserByID = async(req = request, res = response)  => {
     }
     }
 
-    //Nuevo EndPoint 3//
+    //AÑADE UN NUEVO USUARIO O REGISTRO//
 
 
 
@@ -351,5 +352,73 @@ const signInUser = async (req = request, res = response) => {
         
     }
 
+
+    //JWT
+    
+        const token = jwt.sign({
+            id: user.id,
+            username: user.username,
+            role_id: user.role_id
+        },
+        process.env.JWT_SECRET_KEY,
+        {expiresIn: '5m'}
+        );
+
+        res.json({user, token});
+
+    }catch(error){
+        console.log(error);
+        res.status(500).json(error);
+    }finally{
+        if (conn) conn.end();
+        }
+    }
+
+    //endpoint para validar el Token
+    const verifyToken = async (token, role ) => {
+    let conn;
+
+    try{
+        conn = await pool.getConnection();
+        const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET_KEY);
+
+        const [user]= await conn.query
+        usersModel.getByID,
+        [decoded.id],
+        (err)=> {
+            if(err)throw err;
+        }
+
+    if(!user){
+        return{ok:false, msg:'user not found'};
+    }
+
+    const now =new Date().getTime();
+    const tokenExpiration = new Date(decoded.exp = 1000);
+
+    if (now > tokenExpiration){
+        return{ok: false, msg:'Token expired'};
+    }
+
+    if (user.role_id !== role){
+        return{ok: false, msg:'invalid role'};
+    }
+
+    const token = jwt.sign({
+        id: user.id,
+        username: user.username,
+        role_id: user.role_id
+    },
+    process.env.JWT_SECRET_KEY,
+    {expiresIn: '5m'}
+    );
+
+    return{ok: true, token};   
+    } catch (error){
+        console.log(error);
+        return{ok: false, msg: 'Invalid token', error};
+    }
+    }
+
         
-    module.exports = {listUsers, listUserByID, addUser, updateUser, deleteUser, signInUser}
+    module.exports = {listUsers, listUserByID, addUser, updateUser, deleteUser, signInUser, verifyToken}
