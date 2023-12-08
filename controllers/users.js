@@ -342,20 +342,10 @@ const signInUser = async (req = request, res = response) => {
         delete(user.created_at);
         delete(user.updated_at);
 
-        res.json(user);
-    } catch (error) {
-        console.log(error) 
-        res.status(500).json(error);
-        } finally {
-            if (conn) conn.end(error);
-        }
-        
-    }
 
 
     //JWT
-    
-        const token = jwt.sign({
+            const token = jwt.sign({
             id: user.id,
             username: user.username,
             role_id: user.role_id
@@ -371,9 +361,8 @@ const signInUser = async (req = request, res = response) => {
         res.status(500).json(error);
     }finally{
         if (conn) conn.end();
-        }
     }
-
+}
     //endpoint para validar el Token
     const verifyToken = async (token, role ) => {
     let conn;
@@ -388,14 +377,14 @@ const signInUser = async (req = request, res = response) => {
         (err)=> {
             if(err)throw err;
         }
-
+    
     if(!user){
         return{ok:false, msg:'user not found'};
     }
-
+    
     const now =new Date().getTime();
     const tokenExpiration = new Date(decoded.exp = 1000);
-
+    
     if (now > tokenExpiration){
         return{ok: false, msg:'Token expired'};
     }
@@ -412,13 +401,13 @@ const signInUser = async (req = request, res = response) => {
     process.env.JWT_SECRET_KEY,
     {expiresIn: '5m'}
     );
-
+    
     return{ok: true, token};   
     } catch (error){
         console.log(error);
         return{ok: false, msg: 'Invalid token', error};
     }
-    }
+}
 
         
     module.exports = {listUsers, listUserByID, addUser, updateUser, deleteUser, signInUser, verifyToken}
